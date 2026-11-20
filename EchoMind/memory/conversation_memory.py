@@ -25,6 +25,7 @@ from weakref import WeakValueDictionary
 import redis.asyncio as redis
 from anthropic import AsyncAnthropic
 
+from core.chroma_embedding import collection_embedding_options
 from core.llm_utils import extract_text_content
 
 logger = logging.getLogger(__name__)
@@ -125,9 +126,10 @@ class MemoryManager:
             )
 
         # 情景记忆：存储历史对话片段
-        self._episodic = chroma.get_or_create_collection("episodic")
+        embeddings = collection_embedding_options()
+        self._episodic = chroma.get_or_create_collection("episodic", **embeddings)
         # 用户画像：存储提炼出的偏好和实体
-        self._profile  = chroma.get_or_create_collection("user_profile")
+        self._profile  = chroma.get_or_create_collection("user_profile", **embeddings)
 
     # ── 写入 ──────────────────────────────────────────────────────────────────
 

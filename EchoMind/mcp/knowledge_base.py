@@ -16,6 +16,8 @@ import hashlib
 import logging
 from typing import Any, Dict, List, Optional
 
+from core.chroma_embedding import collection_embedding_options
+
 
 logger = logging.getLogger(__name__)
 
@@ -58,11 +60,11 @@ class KnowledgeBase:
                 settings=chromadb.Settings(anonymized_telemetry=False),
             )
 
-        # 使用服务端时不传 embedding_function，让服务端处理
-        # 本地模式时也不传，使用 ChromaDB 默认的（会触发模型下载）
+        # 默认使用 ChromaDB 自带的 embedding，可显式切换到本机 Ollama。
         self._collection = self._client.get_or_create_collection(
             name=self.COLLECTION_NAME,
             metadata={"description": "EchoMind RAG 知识库"},
+            **collection_embedding_options(),
         )
 
         # 如果知识库为空，导入默认文档

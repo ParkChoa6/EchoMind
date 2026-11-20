@@ -57,7 +57,9 @@
 
 ## 快速开始
 
-### 前置条件
+Windows 可通过本机 Ollama、Redis 和预编译版 ChromaDB 启动 Python 后端与 Vue 调试界面。安装、验证和停止步骤见 [Windows 本地部署](WINDOWS_LOCAL.md)。
+
+### Docker 部署前置条件
 
 - Docker + Docker Compose
 - 一个 LLM API Key（Anthropic 官方，或 DeepSeek 等兼容 Anthropic 协议的第三方服务）
@@ -112,7 +114,7 @@ pip install -r requirements-dev.txt
 pytest tests/ -v          # 回归测试用假 LLM + 假 ChromaDB，不访问外部服务
 ```
 
-- 记忆与知识库在实例初始化时才加载 `chromadb`。离线回归测试使用假存储、假 LLM，可在未安装 ChromaDB 时执行；实际启动仍需完整运行依赖。Windows 的 ChromaDB 原生依赖安装有困难时，建议使用 Docker。
+- 记忆与知识库在实例初始化时才加载 `chromadb`。离线回归测试使用假存储、假 LLM，可在未安装 ChromaDB 时执行。Windows 原生运行使用 [独立依赖清单](EchoMind/requirements-windows.txt)。
 - CLI 调试模式（需本机 Redis 和 API Key）：`python -m api.main --cli`
 
 ### 前端（Node 22）
@@ -161,6 +163,7 @@ EchoMind/
 | 文档 | 内容 |
 |---|---|
 | [`EchoMind/README.md`](EchoMind/README.md) | 后端详解：架构、接口、运行时组件 |
+| [`WINDOWS_LOCAL.md`](WINDOWS_LOCAL.md) | Windows 原生部署、真实服务验证与日志位置 |
 | [`EchoMindFrontend/README.md`](EchoMindFrontend/README.md) | 前端详解：三种部署模式下 `/api` 的指向 |
 | [`EchoMind/wiki/技术亮点.md`](EchoMind/wiki/技术亮点.md) | 关键技术点与设计动机 |
 | [`EchoMind/wiki/重点代码.md`](EchoMind/wiki/重点代码.md) | 逐模块代码导读 |
@@ -193,8 +196,8 @@ EchoMind/
 - **整个目录是一个统一的 git 仓库**（2026-09-28 起）。原先 `EchoMind/` 与 `EchoMindFrontend/` 各自独立的仓库已合并，`README.md`、`EchoMind学习指南.md` 现在都在同一个版本库内。远程仓库：`github.com/TCcjx/EchoMind`。
 - **历史备份**：子仓库合并前的 `.git` 备份在 `D:/git_repository/_EchoMind_subgit_backup_20260928/`；再早的原作者提交历史备份在 `D:/git_repository/_EchoMind_git_backup_20260927/`。确认无用后可删。
 - **本机环境需重建**：`node_modules`、`dist`、`.idea`、`.venv` 等环境/产物文件已清理，未纳入版本库。按上文「本地开发」重建即可（`npm install` / `pip install -r requirements-dev.txt`）。原作者的 macOS 残留环境（`darwin-arm64` 版 `node_modules`、`.DS_Store`）已于 2026-09-27 清理。
-- **已知限制**：管理接口无鉴权；Redis 默认密码 `echomind123` 为演示值，公网部署请修改 `.env` 中的 `REDIS_PASSWORD`；`chromadb` 在 Windows 上无预编译 wheel（Docker 内不受影响）；两套 compose 不可同时启动。
-- 根目录 `.gitignore` 统一忽略 `.env`、`data/`、`node_modules/` 等运行环境；提交前检查暂存内容，避免将真实 Key 提交到公开仓库。
+- **已知限制**：管理接口无鉴权，本文示例用于本机开发。Docker 的 Redis 默认密码 `echomind123` 为演示值，两套 Compose 会占用相同端口。Windows 原生部署使用单独的 ChromaDB 依赖版本。
+- 提交前检查暂存内容。密钥、`.env`、生成的数据、`.runtime/`、虚拟环境和前端依赖留在本地。可用 `.git/info/exclude` 保存个人忽略规则。
 
 ---
 
