@@ -8,8 +8,8 @@
 <img src="https://img.shields.io/badge/FastAPI-0.115-009688?style=for-the-badge&amp;logo=fastapi&amp;logoColor=white" alt="FastAPI 0.115">
 <img src="https://img.shields.io/badge/Vue-3.5-42B883?style=for-the-badge&amp;logo=vuedotjs&amp;logoColor=white" alt="Vue 3.5">
 <img src="https://img.shields.io/badge/Vite-7-646CFF?style=for-the-badge&amp;logo=vite&amp;logoColor=white" alt="Vite 7">
-<img src="https://img.shields.io/badge/Redis-5.2-DC382D?style=for-the-badge&amp;logo=redis&amp;logoColor=white" alt="Redis 5.2">
-<img src="https://img.shields.io/badge/ChromaDB-0.5-7C3AED?style=for-the-badge" alt="ChromaDB 0.5">
+<img src="https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&amp;logo=redis&amp;logoColor=white" alt="Redis">
+<img src="https://img.shields.io/badge/ChromaDB-7C3AED?style=for-the-badge" alt="ChromaDB">
 <img src="https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&amp;logo=docker&amp;logoColor=white" alt="Docker Compose">
 
 <br><br>
@@ -22,7 +22,7 @@
 
 ---
 
-一条用户消息进来，走完 **记忆读取 → 意图识别 → 知识检索（RAG）→ Agent 路由与协作 → 回复生成 → 记忆写回 → 监控采集** 的完整闭环。不是聊天机器人 Demo，而是一个**可观测、可评测、可降级**的多 Agent 运行时。
+一次对话经过 **记忆读取 → 意图识别 → 按意图预检索 → Agent 路由与执行 → 记忆写回**。Agent 执行期间可按需调用工具，监控定时汇总指标，对话评测可通过独立接口触发。
 
 > [`EchoMind学习指南.md`](EchoMind学习指南.md) 提供了按请求链路读代码的 7 天学习路径，以及两个容易理解错的字段口径（`latency_ms`、`knowledge_used`）。
 
@@ -31,13 +31,13 @@
 | 能力 | 实现 | 代码位置 |
 |---|---|---|
 | 三路融合意图识别 | LLM 0.7 + Embedding 0.2 + Pattern 0.1，输出 intent / urgency / entities | `core/intent_recognizer.py` |
-| 三级 Agent 路由 | 意图路由 + 性能路由（成功率/耗时）+ 降级路由，复杂问题多 Agent 并行会诊 | `agents/agent_orchestrator.py` |
-| MCP 风格工具层 | 结果缓存 · 熔断 · 语义重排 · 兜底降级，每次调用可回放 | `mcp/tool_manager.py` |
+| Agent 路由 | 按领域信号选择主辅 Agent，同类有多个实例时按运行评分选择，专业 Agent 缺失或执行失败时可回退通用 Agent | `agents/agent_orchestrator.py` |
+| MCP 风格工具层 | 结果缓存、熔断、语义重排和降级，支持查看近期请求的工具 Trace | `mcp/tool_manager.py` |
 | Skills 热加载 | 改 `skills/` 目录后调 `/skills/reload` 即生效，不重启进程 | `core/skill_loader.py` |
 | 分层记忆 | Redis 工作记忆（TTL）+ ChromaDB 情景记忆（向量召回）+ 用户画像 | `memory/conversation_memory.py` |
-| 可观测 | Prometheus 指标 + 异常检测 + 路由调权建议 | `monitor/performance_monitor.py` |
-| 可评测 | LLM-as-Judge 端到端打分，支持回归基线对比 | `evaluation/evaluator.py` |
-| 可降级 | LLM 失败、工具失败、超时均有明确兜底路径，不把异常抛给用户 | `mcp/tool_manager.py` / `core/llm_utils.py` |
+| 可观测 | Prometheus 指标、告警及 Agent 实例级降权。默认每类一个实例，监控降权只影响评分 | `monitor/performance_monitor.py` |
+| 可评测 | 标注意图评测、对话 LLM-as-Judge、逐题结果与回归检测 | `evaluation/evaluator.py` |
+| 可降级 | 关键模型或工具调用失败时，按路径回退到候选规则、降级提示或通用 Agent | `core/intent_recognizer.py` / `mcp/tool_manager.py` / `agents/agent_orchestrator.py` |
 
 ## 分层架构
 
@@ -45,7 +45,7 @@
 <img src="assets/architecture.svg" alt="EchoMind 分层架构" width="100%">
 </div>
 
-自上而下 **接入 → 编排 → Agent → 能力 → 记忆 → 可观测**，每层只依赖下一层。
+系统按 API 接入、编排、Agent、工具、记忆、监控和评测划分模块。
 
 ## 核心链路
 
@@ -53,7 +53,9 @@
 <img src="assets/pipeline.svg" alt="单条消息的完整链路" width="100%">
 </div>
 
-主要接口：`/chat`（对话）、`/search`（检索优化链路演示）、`/knowledge/add|upload|stats`（知识库）、`/skills` + `/skills/reload`（Skills 查看/热加载）、`/monitor`（监控摘要）、`/trace/tool/{id}`（工具调用回放）、`/eval/run`（端到端评测）。
+主要接口包括 `/chat`（对话）、`/search`（检索）、`/knowledge/add|upload|stats`（知识库）、`/skills` 和 `/skills/reload`（查看与热加载 Skills）、`/monitor`（监控摘要）、`/metrics`（指标）、`/trace/tool/{id}`（工具调用记录）以及 `/eval/run`（评测）。
+
+`knowledge_used=true` 表示预检索或 Agent 工具返回了真实知识片段。执行记录可查看片段来源和降级状态。工具 Trace 默认在内存保留最近 200 条请求记录，进程重启后重新累积。
 
 ## 运行展示
 
@@ -99,7 +101,7 @@ docker compose up -d --build
 
 访问：`http://localhost`（网关入口）或 `http://localhost:5174`（前端容器）。
 
-> ⚠️ **两种方式二选一，不能同时启动**：两套 compose 复用了相同的容器名（`echomind-redis`、`echomind-chromadb`）、网络名和宿主机端口（80/8000/8001）。
+两套 Compose 共用 Redis 与 ChromaDB 的容器名，并占用相同的宿主机端口（80、8000、8001）。同一台机器上任选一套。
 
 ### 第三方模型服务配置（以 DeepSeek 为例）
 
@@ -153,8 +155,10 @@ EchoMind/
 │   ├── skills/                 #   可被热加载的技能包
 │   ├── tests/                  #   45 passed（离线回归）
 │   └── wiki/                   #   全套技术文档 + 架构图
-├── EchoMindFrontend/           # 前端：Vue 3 + Vite 调试界面（4 个源文件）
-│   └── src/                    #   App.vue / lib/api.js / styles.css / main.js
+├── EchoMindFrontend/           # Vue 3 + Vite 调试界面
+│   └── src/                    #   App.vue、RequestInspector.vue、EvaluationDetails.vue 等
+├── Local.ps1                   # Windows 本地服务启动、停止和状态检查
+├── WINDOWS_LOCAL.md            # Windows 部署、验证和日志位置
 └── EchoMind学习指南.md           # 按请求链路读代码的 7 天路径
 ```
 
@@ -203,9 +207,8 @@ EchoMind/
 
 ## 注意事项（跨机移植）
 
-- **整个目录是一个统一的 git 仓库**（2026-09-28 起）。原先 `EchoMind/` 与 `EchoMindFrontend/` 各自独立的仓库已合并，`README.md`、`EchoMind学习指南.md` 现在都在同一个版本库内。远程仓库：`github.com/TCcjx/EchoMind`。
-- **历史备份**：子仓库合并前的 `.git` 备份在 `D:/git_repository/_EchoMind_subgit_backup_20260928/`；再早的原作者提交历史备份在 `D:/git_repository/_EchoMind_git_backup_20260927/`。确认无用后可删。
-- **本机环境需重建**：`node_modules`、`dist`、`.idea`、`.venv` 等环境/产物文件已清理，未纳入版本库。按上文「本地开发」重建即可（`npm install` / `pip install -r requirements-dev.txt`）。原作者的 macOS 残留环境（`darwin-arm64` 版 `node_modules`、`.DS_Store`）已于 2026-09-27 清理。
+- 后端、前端和文档都在 [ParkChoa6/EchoMind](https://github.com/ParkChoa6/EchoMind) 中维护。[参考仓库](https://github.com/TCcjx/EchoMind)。
+- 在新机器上重新安装 Python 和前端依赖。Windows 按 [本地部署指南](WINDOWS_LOCAL.md) 使用独立依赖，Docker 使用各自的 Compose 配置。
 - **已知限制**：管理接口无鉴权，本文示例用于本机开发。Docker 的 Redis 默认密码 `echomind123` 为演示值，两套 Compose 会占用相同端口。Windows 原生部署使用单独的 ChromaDB 依赖版本。
 - 提交前检查暂存内容。密钥、`.env`、生成的数据、`.runtime/`、虚拟环境和前端依赖留在本地。可用 `.git/info/exclude` 保存个人忽略规则。
 
@@ -227,4 +230,9 @@ EchoMind/
 - JSON 上传逐项校验，超大文件、错误编码及格式错误给出明确提示；知识导入后清理旧检索缓存。
 - Compose 使用 Python 健康检查；代理读取超时为 180 秒，上传请求体上限为 11 MiB（包含 multipart 开销），实际文件上限仍为 10 MiB。
 
-这些验证使用假 LLM 和假存储，证明业务逻辑正确；真实模型、存储服务及容器启动仍需在相应环境验证。
+## 验证范围
+
+- **离线回归**覆盖 45 项测试，使用假模型或假存储验证关键分支。Vue 生产构建已通过。
+- **Windows 实跑**使用本机 Ollama、Redis 和 ChromaDB，验证了知识导入与检索、两轮对话、主辅 Agent 路由、工具 Trace 查询和重启后数据可读。 [部署与复现步骤](WINDOWS_LOCAL.md)
+- **内置评测**包含 11 条意图用例和 5 组对话（共 7 轮），用于检查本地评测链路。默认评测结果可查看逐题明细，显式设置 `save_baseline: true` 才会写入磁盘基线。
+- **Docker Compose** 的服务和端口已按配置核对，容器实跑待验证。

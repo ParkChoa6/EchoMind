@@ -224,7 +224,7 @@
   <path d="M578 952 L568 974 M578 952 L590 974" stroke="#14945b" stroke-width="3" fill="none"/>
   <path d="M875 952 L865 974 M875 952 L887 974" stroke="#14945b" stroke-width="3" fill="none"/>
   <path d="M1172 952 L1162 974 M1172 952 L1184 974" stroke="#14945b" stroke-width="3" fill="none"/>
-  <text class="green-title" x="585" y="1028">监控发现问题，评测检测回归，动态降权并优化后续路由</text>
+  <text class="green-title" x="585" y="1028">监控更新同类实例评分，评测用于检测回归</text>
 
   <g transform="translate(1540,558)">
     <rect class="side-green soft-shadow" width="356" height="494"/>

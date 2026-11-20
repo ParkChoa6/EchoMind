@@ -33,7 +33,7 @@
 
   <rect x="68" y="40" width="6" height="34" rx="3" fill="url(#aacc)"/>
   <text class="h1 f" x="88" y="68">分层架构</text>
-  <text class="h2 f" x="88" y="102">自上而下：接入 → 编排 → Agent → 能力 → 记忆 → 可观测。每层只依赖下一层。</text>
+  <text class="h2 f" x="88" y="102">接入、编排、Agent、工具、记忆、监控与评测的模块划分。</text>
 
   <!-- ======== L1 接入层 ======== -->
   <rect x="68" y="128" width="1465" height="100" rx="14" fill="#0c1728" stroke="#22d3ee" stroke-opacity="0.28"/>
@@ -57,7 +57,7 @@
     <text class="ct f" x="1022" y="176">/monitor</text><text class="cs f" x="1022" y="198">监控摘要</text>
     <rect x="1185" y="148" width="167" height="60" rx="10" fill="#101d31" stroke="#2b4560"/>
     <rect x="1185" y="158" width="3" height="40" rx="1.5" fill="#22d3ee"/>
-    <text class="ct f" x="1203" y="176">/trace</text><text class="cs f" x="1203" y="198">调用回放</text>
+    <text class="ct f" x="1203" y="176">工具 Trace</text><text class="cs f" x="1203" y="198">近期调用查询</text>
     <rect x="1366" y="148" width="167" height="60" rx="10" fill="#101d31" stroke="#2b4560"/>
     <rect x="1366" y="158" width="3" height="40" rx="1.5" fill="#22d3ee"/>
     <text class="ct f" x="1384" y="176">/eval</text><text class="cs f" x="1384" y="198">端到端评测</text>
@@ -75,10 +75,10 @@
     <text class="ct f" x="298" y="298">意图路由</text><text class="cs f" x="298" y="320">intent → Agent 主决策</text>
     <rect x="596" y="270" width="302" height="60" rx="10" fill="#101d31" stroke="#2b4560"/>
     <rect x="596" y="280" width="3" height="40" rx="1.5" fill="#38bdf8"/>
-    <text class="ct f" x="614" y="298">性能路由</text><text class="cs f" x="614" y="320">成功率 / 耗时动态调权</text>
+    <text class="ct f" x="614" y="298">性能路由</text><text class="cs f" x="614" y="320">同类多实例按评分排序</text>
     <rect x="912" y="270" width="302" height="60" rx="10" fill="#101d31" stroke="#2b4560"/>
     <rect x="912" y="280" width="3" height="40" rx="1.5" fill="#38bdf8"/>
-    <text class="ct f" x="930" y="298">降级路由</text><text class="cs f" x="930" y="320">失败 / 超时转兜底 Agent</text>
+    <text class="ct f" x="930" y="298">降级路由</text><text class="cs f" x="930" y="320">专业 Agent 缺失或失败时回退</text>
     <rect x="1228" y="270" width="305" height="60" rx="10" fill="#101d31" stroke="#2b4560"/>
     <rect x="1228" y="280" width="3" height="40" rx="1.5" fill="#38bdf8"/>
     <text class="ct f" x="1246" y="298">并行协作</text><text class="cs f" x="1246" y="320">复杂问题多 Agent 会诊</text>
@@ -156,8 +156,8 @@
     <text class="ct f" x="720" y="786">Evaluator 质量评测</text><text class="cs f" x="720" y="808">LLM-as-Judge 打分，可存回归基线</text>
     <rect x="1124" y="758" width="409" height="60" rx="10" fill="#101d31" stroke="#2b4560"/>
     <rect x="1124" y="768" width="3" height="40" rx="1.5" fill="#fbbf24"/>
-    <text class="ct f" x="1142" y="786">Trace 调用链路</text><text class="cs f" x="1142" y="808">每次工具调用可回放，定位问题靠它</text>
+    <text class="ct f" x="1142" y="786">工具 Trace</text><text class="cs f" x="1142" y="808">按请求 ID 查看近期调用</text>
   </g>
 
-  <text class="note f" x="68" y="874">外部依赖（LLM API / Redis / ChromaDB / Prometheus / Nginx）由 docker compose 统一编排，两套 compose 不可同时启动。</text>
+  <text class="note f" x="68" y="874">支持 Docker Compose 与 Windows 原生部署。生成模型使用已配置的兼容 API 或本机 Ollama。</text>
 </svg>

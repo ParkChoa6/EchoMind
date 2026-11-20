@@ -296,7 +296,7 @@ Monitor 会定期采集：
 
 如果某个 Agent 表现变差，Monitor 会写回 `monitor_penalty`，影响后续 `routing_score`。
 
-也就是说，监控不只是展示指标，还会影响后续路由选择。
+当同类 Agent 有多个实例时，编排器按评分选实例。默认每类一个实例，监控降权记录在评分中。
 
 ### 8. LLM-as-Judge 端到端评测
 

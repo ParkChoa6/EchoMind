@@ -37,7 +37,7 @@
 
   <rect x="68" y="38" width="6" height="34" rx="3" fill="url(#pacc)"/>
   <text class="h1 f" x="88" y="66">单条消息的完整链路</text>
-  <text class="h2 f" x="88" y="100">上半区为同步返回路径；下半区为旁路异步，不阻塞响应。</text>
+  <text class="h2 f" x="88" y="100">上半区是聊天请求，下半区是定时监控、独立评测和后台任务。</text>
 
   <!-- ================= 第一行 ================= -->
   <g>
@@ -155,13 +155,13 @@
 
   <!-- ================= 旁路异步带 ================= -->
   <rect x="68" y="600" width="1465" height="150" rx="16" fill="#0b1729" stroke="#2b4560" stroke-dasharray="10 7"/>
-  <text class="bandT f" x="92" y="632">旁路异步 · ASYNC</text>
+  <text class="bandT f" x="92" y="632">后台任务与独立接口</text>
 
   <g>
     <rect x="92" y="646" width="446" height="86" rx="12" fill="#101d31" stroke="#2b4560"/>
     <rect x="92" y="646" width="4" height="86" rx="2" fill="#22d3ee"/>
     <text class="bt f" x="116" y="682">在线监控</text>
-    <text class="bs f" x="116" y="710">Prometheus 指标 · 异常检测 · 调权</text>
+    <text class="bs f" x="116" y="710">指标 · 告警 · 同类实例降权</text>
   </g>
   <g>
     <rect x="570" y="646" width="446" height="86" rx="12" fill="#101d31" stroke="#2b4560"/>
@@ -176,5 +176,5 @@
     <text class="bs f" x="1072" y="710">异步更新用户画像，不阻塞主链路响应</text>
   </g>
 
-  <text class="note f" x="68" y="786">全程共享 request_id；工具调用可回放 /trace/tool/{id}，端到端质量可跑 /eval/run。</text>
+  <text class="note f" x="68" y="786">用 request_id 查询近期工具 Trace：/trace/tool/{id}。对话评测由 /eval/run 独立触发。</text>
 </svg>

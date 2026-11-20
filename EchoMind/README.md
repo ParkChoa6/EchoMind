@@ -7,7 +7,7 @@ EchoMind 是一个面向客服/运营场景的多 Agent 智能系统。它不是
 - 意图驱动 RAG 检索
 - Redis + ChromaDB 分层记忆
 - 动态 Skills 注入
-- 在线监控与路由降权
+- 在线监控与 Agent 实例级降权
 - LLM-as-Judge 端到端评测
 
 ## 你可以先看什么
@@ -18,6 +18,8 @@ EchoMind 是一个面向客服/运营场景的多 Agent 智能系统。它不是
 - [完整使用指南](wiki/完整使用指南.md)
 
 ## 快速开始
+
+Windows 本地运行见 [Windows 部署指南](../WINDOWS_LOCAL.md)。以下是 Docker 配置。
 
 ### 1. 准备环境
 
@@ -129,12 +131,10 @@ data/                       持久化数据
   -> /chat
   -> MemoryManager 读取工作记忆、情景记忆、用户画像
   -> IntentRecognizer 输出 intent / intent_group / urgency / entities
-  -> 按意图决定是否检索知识库
+  -> 按意图决定是否预检索知识库
   -> AgentOrchestrator 路由到 General / Technical / Billing / Escalation
-  -> Skills 注入、工具调用、回复生成
-  -> 写回 Redis 和 ChromaDB
-  -> Monitor 采集在线指标
-  -> Evaluator 做意图识别和回复质量评测
+  -> Skills 注入、按需工具调用、回复生成
+  -> 写回 Redis，后台更新 ChromaDB 用户画像
 ```
 
 ## 主要端口
@@ -166,9 +166,7 @@ pip install -r requirements-dev.txt
 pytest tests/ -v
 ```
 
-`test_knowledge_base.py` 和 `test_conversation_memory.py` 依赖被测试模块的顶层 `import chromadb`，
-本机没装 ChromaDB 时这两份会跳过而不是报错中断收集（Windows/Python 3.12 上 `chroma-hnswlib` 没有预编译
-wheel，装 ChromaDB 需要额外的 MSVC 编译器；Docker 镜像里是 Linux，不受影响）。
+Docker 与 Windows 使用各自的依赖版本。Windows 测试安装步骤见 [本地部署指南](../WINDOWS_LOCAL.md)。监控定时采集在线指标，`/eval/run` 单独触发意图和对话评测。
 
 如果你只想看项目怎么工作，直接读：
 

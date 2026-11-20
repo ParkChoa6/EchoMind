@@ -61,18 +61,18 @@
   <!-- Header -->
   <rect class="header shadow" x="32" y="28" width="1536" height="112" rx="18"/>
   <text class="title" x="66" y="78">监控与评测闭环</text>
-  <text class="subtitle" x="66" y="110">在线监控影响后续路由，端到端评测发现回复质量退化并输出优化建议</text>
+  <text class="subtitle" x="66" y="110">监控更新同类实例评分，独立评测报告质量变化</text>
   <g transform="translate(1278,58)">
     <rect class="soft-card" width="240" height="48" rx="12"/>
     <circle class="green" cx="28" cy="24" r="14"/>
     <path d="M20 24 L26 31 L38 17" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-    <text class="small" x="52" y="30">监控 + 评测双闭环</text>
+    <text class="small" x="52" y="30">监控与回归对比</text>
   </g>
 
   <!-- Online monitoring -->
   <rect class="panel shadow" x="32" y="170" width="1536" height="360" rx="18"/>
   <rect class="band" x="62" y="198" width="1476" height="66" rx="14"/>
-  <text class="section-title" x="92" y="240">在线监控链路：采集运行指标，写回路由惩罚</text>
+  <text class="section-title" x="92" y="240">采集运行指标并写回惩罚，同类多实例时影响排序</text>
 
   <g transform="translate(92,310)">
     <rect class="card blue-card" width="240" height="116" rx="12"/>
@@ -122,7 +122,7 @@
     <rect class="card red-card" width="212" height="48" rx="12"/>
     <circle class="red" cx="30" cy="24" r="14"/>
     <text class="tiny" x="25" y="29">6</text>
-    <text class="label red-text" x="62" y="31">动态降权</text>
+    <text class="label red-text" x="62" y="31">同类实例评分</text>
   </g>
   <path class="red-line dashed" d="M1400 462 C1450 244 574 244 570 310"/>
 
@@ -144,7 +144,7 @@
     <circle class="purple" cx="42" cy="38" r="19"/>
     <text class="tiny" x="37" y="44">2</text>
     <text class="label purple-text" x="78" y="46">真实调用链路</text>
-    <text class="muted" x="78" y="78">Orchestrator 生成回复</text>
+    <text class="muted" x="78" y="78">API 对话评测复用 /chat</text>
   </g>
 
   <g transform="translate(808,712)">
@@ -172,7 +172,7 @@
     <circle class="blue" cx="32" cy="28" r="15"/>
     <path d="M22 28 h20 M32 18 v20" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
     <text class="label blue-text" x="64" y="24">基线对比</text>
-    <text class="muted" x="64" y="44">data/eval/baseline.json</text>
+    <text class="muted" x="64" y="44">显式保存才写入磁盘</text>
   </g>
 
   <g transform="translate(676,874)">
@@ -180,7 +180,7 @@
     <circle class="orange" cx="32" cy="28" r="15"/>
     <text class="tiny" x="27" y="33">分</text>
     <text class="label orange-text" x="64" y="24">质量评分</text>
-    <text class="muted" x="64" y="44">相关性、准确性、完整性</text>
+    <text class="muted" x="64" y="44">相关、准确、完整、有用</text>
   </g>
 
   <g transform="translate(1114,874)">
