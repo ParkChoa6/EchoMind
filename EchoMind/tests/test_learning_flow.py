@@ -72,8 +72,9 @@ def test_knowledge_context_uses_only_real_hits(monkeypatch, partial):
         if partial: data.append({'title': 'policy', 'content': 'real policy'})
         return NS(success=True, fallback_used=True, data=data)
     monkeypatch.setattr(main, '_tool_manager', NS(search_with_rewrite=search))
-    context, used = asyncio.run(main._build_knowledge_context('refund?', intent='refund'))
-    assert used is partial
+    context, prefetch = asyncio.run(main._build_knowledge_context('refund?', intent='refund'))
+    assert prefetch.status == ('partial' if partial else 'degraded')
+    assert prefetch.sources == ([{'title': 'policy', 'snippet': 'real policy'}] if partial else [])
     assert 'unavailable' not in context
     assert ('real policy' in context) is partial
 
@@ -155,7 +156,7 @@ def test_evaluation_runs_actual_memory_rag_and_entity_pipeline(monkeypatch):
 def test_failed_agent_search_is_not_a_knowledge_hit(monkeypatch):
     # 沿用同一套 API 请求结构，单独验证 knowledge_used 不再由工具名决定。
     # 工具调用失败时 trace 没有 knowledge_hit；真实预检索为空。
-    async def empty(*args, **kwargs): return ('', False)
+    async def empty(*args, **kwargs): return ('', main.KnowledgePrefetch(status='empty'))
     monkeypatch.setattr(main, '_build_knowledge_context', empty)
     async def context(*args, **kwargs): return MemoryContext([], [], {}, '')
     async def noop(*args): pass

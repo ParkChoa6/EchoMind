@@ -27,13 +27,12 @@
     <section v-if="activeView === 'chat'" class="page page-chat">
       <div class="page-heading">
         <div class="heading-copy">
-          <span class="kicker">Conversation lab</span>
-          <h1>和客服 Agent 对话</h1>
-          <p>发送一条真实请求，查看它如何识别意图、选择 Agent 并生成回复。</p>
+          <h1>客服对话</h1>
+          <p>发起一次请求，查看意图、Agent 路由和知识库证据。</p>
         </div>
         <div class="heading-actions">
           <span class="session-label">{{ settings.conversationId || '新会话' }}</span>
-          <button class="quiet-button" @click="clearConversation">清空</button>
+          <button class="quiet-button" :disabled="chatPending" @click="clearConversation">清空</button>
         </div>
       </div>
 
@@ -54,35 +53,19 @@
                 <small v-if="item.meta">{{ item.meta }}</small>
               </div>
               <p>{{ item.content }}</p>
-              <div v-if="item.trace" class="message-trace">
-                <div class="trace-head">
-                  <span>工具调用</span>
-                  <small v-if="item.trace.requestId">#{{ item.trace.requestId }}</small>
-                </div>
-                <div v-if="item.trace.toolCalls?.length" class="trace-calls">
-                  <details v-for="(call, index) in item.trace.toolCalls" :key="`${item.id}-${index}`" open>
-                    <summary>
-                      <strong>{{ call.tool_name || 'unknown_tool' }}</strong>
-                      <span>{{ call.success ? '成功' : '失败' }}</span>
-                    </summary>
-                    <pre>{{ formatJson(call.input || {}) }}</pre>
-                  </details>
-                </div>
-                <div v-else class="trace-empty-block">
-                  <p>本次请求已生成 trace，但没有可展示的工具输入。</p>
-                  <p v-if="item.trace.toolsUsed?.length" class="trace-note">已调用：{{ item.trace.toolsUsed.join(' · ') }}</p>
-                </div>
-              </div>
+              <button v-if="item.response" class="message-inspect quiet-button" type="button"
+                :aria-pressed="selectedRequestId === item.id" @click="selectRequest(item.id)">
+                {{ selectedRequestId === item.id ? '正在查看执行记录' : '查看执行记录' }}
+              </button>
             </article>
 
             <div v-if="messages.length === 0" class="empty-state">
-              <div class="empty-symbol">✦</div>
-              <h2>从一个客户问题开始</h2>
-              <p>下面的快捷问题只是起点，你也可以直接输入自己的测试用例。</p>
+              <h2>运行一个客服示例</h2>
+              <p>点击即发送。你也可以输入自己的问题。</p>
               <div class="starter-prompts">
-                <button @click="usePrompt('我想申请退款，订单号是 #12345')">退款申请</button>
-                <button @click="usePrompt('登录时提示错误，应该怎么排查？')">技术排查</button>
-                <button @click="usePrompt('发票多久可以开具？')">发票咨询</button>
+                <button :disabled="busy" @click="runExample('根据知识库，退款审核通过后多久能到账？')">查询退款政策 ↗</button>
+                <button :disabled="busy" @click="runExample('登录时报 401，应该怎么排查？')">排查登录故障 ↗</button>
+                <button :disabled="busy" @click="runExample('登录报错 401，同时订单被重复扣款 99 元，怎么分别处理？')">处理跨领域请求 ↗</button>
               </div>
             </div>
           </div>
@@ -104,42 +87,19 @@
 
         <aside class="chat-sidebar">
           <div class="chat-sidebar-scroll">
-            <section class="side-card session-card">
-              <div class="card-heading">
-                <div>
-                  <span class="kicker">Session</span>
-                  <h2>会话信息</h2>
-                </div>
-                <span class="status-copy muted">{{ settings.conversationId ? '已启用' : '新会话' }}</span>
-              </div>
-              <div class="session-grid">
-                <div>
-                  <span>会话 ID</span>
-                  <strong>{{ settings.conversationId || '自动生成' }}</strong>
-                </div>
-                <div>
-                  <span>用户 ID</span>
-                  <strong>{{ settings.userId || 'anonymous' }}</strong>
-                </div>
-              </div>
-            </section>
-
-            <section class="side-card connection-card">
-              <div class="card-heading">
-                <div>
-                  <span class="kicker">Connection</span>
-                  <h2>连接配置</h2>
-                </div>
-                <span class="status-copy" :class="healthOk ? 'success' : 'muted'">{{ healthLabel }}</span>
-              </div>
-
+            <div ref="inspectorAnchor">
+              <RequestInspector :entry="selectedRequest" :pending="chatPending" :error="chatError" />
+            </div>
+            <details class="side-card connection-settings">
+              <summary>会话与连接配置</summary>
+              <div class="connection-card">
               <label>
                 <span>用户 ID</span>
-                <input v-model="settings.userId" @change="persist" placeholder="u1001" />
+                <input v-model="settings.userId" :disabled="chatPending" @change="persist" placeholder="u1001" />
               </label>
               <label>
                 <span>会话 ID</span>
-                <input v-model="settings.conversationId" @change="persist" placeholder="自动生成" />
+                <input v-model="settings.conversationId" :disabled="chatPending" @change="persist" placeholder="自动生成" />
               </label>
               <div class="side-actions">
                 <button @click="checkHealth">检查连接</button>
@@ -154,62 +114,23 @@
                 </button>
                 <pre v-if="statusOpen" class="status-detail">{{ statusText }}</pre>
               </div>
-            </section>
-
-            <section class="side-card trace-card">
-              <div class="card-heading">
-                <div>
-                  <span class="kicker">Last trace</span>
-                  <h2>最近一次请求</h2>
-                </div>
-                <span class="trace-status" :class="lastResponse ? 'has-data' : ''"></span>
               </div>
-
-              <div v-if="lastResponse" class="trace-body">
-                <div class="latency">
-                  <span>响应耗时</span>
-                  <strong>{{ lastResponse.latencyMs || '-' }}<small> ms</small></strong>
-                </div>
-                <dl class="detail-list">
-                  <div><dt>主 Agent</dt><dd>{{ lastResponse.primaryAgent || lastResponse.agentType || '-' }}</dd></div>
-                  <div><dt>意图</dt><dd>{{ lastResponse.intent || '-' }}</dd></div>
-                  <div><dt>置信度</dt><dd>{{ formatPercent(lastResponse.routingConfidence) }}</dd></div>
-                  <div><dt>知识库</dt><dd :class="lastResponse.knowledgeUsed ? 'success' : 'muted'">{{ lastResponse.knowledgeUsed ? '已使用' : '未使用' }}</dd></div>
-                  <div><dt>转人工</dt><dd :class="lastResponse.escalated ? 'danger' : 'muted'">{{ lastResponse.escalated ? '是' : '否' }}</dd></div>
-                </dl>
-                <p v-if="lastResponse.routingReason" class="routing-reason">{{ lastResponse.routingReason }}</p>
-                <div v-if="lastTrace?.trace" class="trace-call-list">
-                  <div class="trace-call-title">工具调用</div>
-                  <div v-for="(call, index) in lastTrace.trace.toolCalls" :key="`${call.tool_use_id || index}`" class="trace-call-item">
-                    <div class="trace-call-meta">
-                      <strong>{{ call.tool_name || 'unknown_tool' }}</strong>
-                      <span>{{ call.latency_ms || 0 }} ms</span>
-                    </div>
-                    <pre>{{ formatJson(call.input || {}) }}</pre>
-                  </div>
-                  <div v-if="!lastTrace.trace.toolCalls?.length" class="trace-empty-block">
-                    <p>这次 trace 没有记录到工具输入。</p>
-                    <p v-if="lastTrace.trace.toolsUsed?.length" class="trace-note">已调用：{{ lastTrace.trace.toolsUsed.join(' · ') }}</p>
-                  </div>
-                </div>
-              </div>
-              <p v-else class="side-empty">发送消息后，这里会显示 Agent 路由、意图和耗时。</p>
-            </section>
+            </details>
 
             <section class="side-card monitor-card">
               <div class="card-heading">
                 <div>
-                  <span class="kicker">Runtime</span>
                   <h2>运行状态</h2>
                 </div>
                 <button class="link-button" @click="loadMonitor">刷新</button>
               </div>
-              <div class="mini-stats">
-                <div><strong>{{ totalRequests }}</strong><span>请求</span></div>
+              <div v-if="monitorAvailable" class="mini-stats">
+                <div><strong>{{ totalRequests }}</strong><span>Agent 执行</span></div>
                 <div><strong>{{ agentCount }}</strong><span>Agent</span></div>
                 <div><strong>{{ activeAlerts.length }}</strong><span>告警</span></div>
               </div>
-              <div v-if="activeAlerts.length" class="alert-note">{{ activeAlerts[0].message }}</div>
+              <p v-if="!monitorAvailable" class="healthy-note">监控数据暂不可用。</p>
+              <div v-else-if="activeAlerts.length" class="alert-note">{{ activeAlerts[0].message }}</div>
               <p v-else class="healthy-note">当前没有活跃告警。</p>
             </section>
           </div>
@@ -220,38 +141,40 @@
     <section v-else-if="activeView === 'knowledge'" class="page page-knowledge">
       <div class="page-heading">
         <div class="heading-copy">
-          <span class="kicker">Knowledge operations</span>
           <h1>知识库</h1>
           <p>搜索、补充和维护客服 Agent 使用的知识片段。</p>
         </div>
-        <div class="count-display"><strong>{{ knowledgeCount }}</strong><span>chunks</span></div>
+        <div class="count-display"><strong>{{ knowledgeCount }}</strong><span>知识片段</span></div>
       </div>
 
       <div class="knowledge-layout">
         <section class="workspace-card search-workspace">
           <div class="card-heading">
-            <div><span class="kicker">Retrieval</span><h2>检索知识</h2></div>
-            <code>POST /search</code>
+            <h2>检索知识</h2>
           </div>
           <div class="search-line">
             <input v-model="searchQuery" placeholder="例如：退款多久到账" @keydown.enter="searchKnowledge" />
             <button @click="searchKnowledge" :disabled="busy || !searchQuery.trim()">搜索</button>
           </div>
+          <p v-if="searchFeedback" class="workspace-feedback" :class="searchFeedback.tone" role="status">
+            {{ searchFeedback.message }}
+          </p>
           <div v-if="searchResults.length" class="result-list">
-            <article v-for="(item, index) in searchResults" :key="item.id || item.title || index" class="result-item">
-              <span class="result-number">{{ String(index + 1).padStart(2, '0') }}</span>
-              <div>
-                <div class="result-title"><strong>{{ item.title || '未命名文档' }}</strong><small>score {{ item.score ?? '-' }}</small></div>
-                <p>{{ item.content }}</p>
-              </div>
-            </article>
+            <details v-for="(item, index) in searchResults" :key="item.id || index"
+              class="result-item knowledge-result" :open="index === 0">
+              <summary class="result-title">
+                <strong>{{ item.title || '未命名文档' }}</strong>
+                <small v-if="Number.isFinite(item.score)">向量相似分 {{ item.score }}</small>
+              </summary>
+              <p>{{ item.content }}</p>
+            </details>
           </div>
-          <div v-else class="workspace-empty">输入客户问题开始搜索。</div>
+          <div v-else-if="!searchFeedback" class="workspace-empty">输入一个问题，查看实际召回的文档片段。</div>
         </section>
 
         <section class="workspace-card import-workspace">
           <div class="card-heading">
-            <div><span class="kicker">Ingestion</span><h2>添加知识</h2></div>
+            <h2>添加知识</h2>
             <code>ChromaDB</code>
           </div>
           <label><span>标题</span><input v-model="docTitle" placeholder="退款补充政策" /></label>
@@ -265,7 +188,7 @@
 
       <section class="workspace-card skills-workspace">
         <div class="card-heading">
-          <div><span class="kicker">Loaded skills</span><h2>已加载能力</h2></div>
+          <h2>已加载 Skills</h2>
           <button class="link-button" @click="reloadSkillSet">重新加载</button>
         </div>
         <div class="skill-table">
@@ -280,41 +203,50 @@
     <section v-else class="page page-evaluation">
       <div class="page-heading">
         <div class="heading-copy">
-          <span class="kicker">Evaluation lab</span>
           <h1>评测 Agent</h1>
           <p>运行 FastAPI 内置评测，查看意图识别、对话质量和回归结果。</p>
         </div>
-        <button @click="runEvaluation" :disabled="busy">{{ busy ? '运行中...' : '运行评测' }}</button>
+        <button @click="runEvaluation" :disabled="busy">{{ evaluationPending ? '运行中…' : '运行评测' }}</button>
       </div>
 
       <div v-if="evalData" class="evaluation-content">
         <div class="evaluation-summary">
-          <div class="score-hero"><span>Pass rate</span><strong>{{ formatPercent(evalData.pass_rate) }}</strong><small>{{ evalData.passed }} / {{ evalData.total }} cases passed</small></div>
-          <div><span>通过</span><strong>{{ evalData.passed }}</strong></div>
-          <div><span>总数</span><strong>{{ evalData.total }}</strong></div>
+          <div class="score-hero"><span>报告条目通过率</span><strong>{{ formatPercent(evalData.pass_rate) }}</strong><small>意图汇总及对话轮次合计</small></div>
+          <div><span>通过条目</span><strong>{{ evalData.passed }}</strong></div>
+          <div><span>报告条目</span><strong>{{ evalData.total }}</strong></div>
           <div><span>回归</span><strong :class="evalData.regressions?.length ? 'danger' : 'success'">{{ evalData.regressions?.length || 0 }}</strong></div>
         </div>
         <div class="evaluation-layout">
           <section class="workspace-card">
-            <div class="card-heading"><div><span class="kicker">Scores</span><h2>平均评分</h2></div></div>
+            <div class="card-heading"><h2>指标汇总</h2></div>
             <div class="score-list">
-              <div v-for="(value, key) in evalData.avg_scores" :key="key"><span>{{ key }}</span><i><b :style="{ width: `${Math.min(Number(value) * 100, 100)}%` }"></b></i><strong>{{ Number(value).toFixed(2) }}</strong></div>
+              <div v-for="(value, key) in evalData.avg_scores" :key="key"><span>{{ evaluationMetricNames[key] || key }}</span><i><b :style="{ width: `${Math.min(Number(value) * 100, 100)}%` }"></b></i><strong>{{ Number(value).toFixed(2) }}</strong></div>
             </div>
           </section>
           <section class="workspace-card">
-            <div class="card-heading"><div><span class="kicker">Recommendations</span><h2>优化建议</h2></div></div>
+            <div class="card-heading"><h2>回归与建议</h2></div>
+            <ul v-if="evalData.regressions?.length" class="regression-list">
+              <li v-for="item in evalData.regressions" :key="item">{{ item }}</li>
+            </ul>
             <div v-if="evalData.recommendations?.length" class="recommendations"><p v-for="(item, index) in evalData.recommendations" :key="index">{{ item }}</p></div>
             <div v-else class="workspace-empty">本次评测没有返回额外建议。</div>
           </section>
         </div>
+        <EvaluationDetails :report="evalData" />
       </div>
-      <div v-else class="evaluation-empty"><div class="empty-symbol">◎</div><h2>还没有评测结果</h2><p>点击右上角运行一次评测。</p></div>
+      <div v-else class="evaluation-empty" role="status">
+        <h2>{{ evaluationPending ? '正在运行评测' : '还没有评测结果' }}</h2>
+        <p>{{ evaluationPending ? '正在生成对话回复并逐轮评分。' : '运行内置评测后，可查看逐题对照和模型裁判结果。' }}</p>
+      </div>
+      <p v-if="evaluationError" class="workspace-feedback danger" role="alert">{{ evaluationError }}</p>
     </section>
   </main>
 </template>
 
 <script setup>
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import EvaluationDetails from './EvaluationDetails.vue'
+import RequestInspector from './RequestInspector.vue'
 import {
   addKnowledge,
   apiBaseUrl,
@@ -337,20 +269,30 @@ const activeView = ref('chat')
 const messages = ref([])
 const draft = ref('')
 const busy = ref(false)
+const chatPending = ref(false)
+const chatError = ref('')
 const healthOk = ref(false)
 const healthLabel = ref('未检查')
 const statusText = ref('')
 const knowledgeCount = ref('-')
 const searchQuery = ref('退款多久能到账')
 const searchResults = ref([])
+const searchFeedback = ref(null)
 const docTitle = ref('退款补充政策')
 const docContent = ref('大促期间退款审核时间可能延长到 3-5 个工作日。')
 const messageList = ref(null)
+const inspectorAnchor = ref(null)
 const monitorData = ref({ agent_stats: {}, tool_stats: {}, active_alerts: [], suggestions: [] })
+const monitorAvailable = ref(false)
 const skillsData = ref({ count: 0, skills: [], errors: [] })
-const lastResponse = ref(null)
-const lastTrace = ref(null)
+const selectedRequestId = ref(null)
 const evalData = ref(null)
+const evaluationPending = ref(false)
+const evaluationError = ref('')
+const evaluationMetricNames = {
+  relevance: '相关性', accuracy: '答案准确性', completeness: '完整性',
+  helpfulness: '有用性', intent_accuracy: '意图准确率'
+}
 const toast = ref('')
 const statusOpen = ref(false)
 let toastTimer
@@ -361,6 +303,7 @@ const userInitial = computed(() => (settings.userId || 'U').slice(0, 1).toUpperC
 const activeAlerts = computed(() => monitorData.value.active_alerts || [])
 const agentCount = computed(() => Object.keys(monitorData.value.agent_stats || {}).length)
 const totalRequests = computed(() => Object.values(monitorData.value.agent_stats || {}).reduce((sum, item) => sum + Number(item.total || 0), 0))
+const selectedRequest = computed(() => messages.value.find(item => item.id === selectedRequestId.value) || null)
 
 watch(() => settings.conversationId, persist)
 // 侧栏高度不再用 JS 计算：原实现用 ResizeObserver 观察侧栏自身，
@@ -403,8 +346,9 @@ async function loadStats() {
 async function loadMonitor() {
   try {
     monitorData.value = await requestMonitor()
+    monitorAvailable.value = true
   } catch {
-    monitorData.value = { agent_stats: {}, tool_stats: {}, active_alerts: [], suggestions: [] }
+    monitorAvailable.value = false
   }
 }
 
@@ -434,57 +378,82 @@ async function sendMessage() {
   messages.value.push({ id: createMessageId(), role: 'user', content })
   draft.value = ''
   busy.value = true
+  chatPending.value = true
+  chatError.value = ''
   try {
     const response = await requestChat(settings, content)
     if (response.conversationId && !settings.conversationId) {
       settings.conversationId = response.conversationId
       persist()
     }
-    lastResponse.value = response
-    lastTrace.value = null
     const meta = [response.intent, response.primaryAgent || response.agentType, response.knowledgeUsed ? 'RAG' : '', response.escalated ? '转人工' : ''].filter(Boolean).join(' · ')
     const messageId = createMessageId()
-    messages.value.push({ id: messageId, role: 'assistant', content: response.response, meta, trace: null })
-    // 回复立即展示；补充信息独立加载，也不阻塞下一轮发送。
-    void loadToolTrace(response.requestId).then((trace) => {
-      const item = messages.value.find((entry) => entry.id === messageId)
-      if (item) item.trace = trace?.trace || null
-      if (item && lastResponse.value?.requestId === response.requestId) lastTrace.value = trace
+    messages.value.push({
+      id: messageId, role: 'assistant', content: response.response, meta, response,
+      trace: null, tracePending: Boolean(response.requestId)
     })
+    selectedRequestId.value = messageId
+    // 回复立即展示；补充信息独立加载，也不阻塞下一轮发送。
+    if (response.requestId) {
+      void loadToolTrace(response.requestId).then((trace) => {
+        const item = messages.value.find(entry => entry.id === messageId)
+        if (item) {
+          item.trace = trace
+          item.tracePending = false
+        }
+      })
+    }
     void loadMonitor()
   } catch (error) {
+    chatError.value = error.message
     statusText.value = error.message
     statusOpen.value = true
     messages.value.push({ id: createMessageId(), role: 'assistant', content: error.message, meta: '请求失败' })
   } finally {
     busy.value = false
+    chatPending.value = false
     await nextTick()
     messageList.value?.scrollTo({ top: messageList.value.scrollHeight, behavior: 'smooth' })
   }
 }
 
-function usePrompt(prompt) { draft.value = prompt }
+function runExample(prompt) {
+  draft.value = prompt
+  return sendMessage()
+}
+
+function selectRequest(id) {
+  selectedRequestId.value = id
+  chatError.value = ''
+  inspectorAnchor.value?.scrollIntoView({ block: 'nearest' })
+}
 
 function clearConversation() {
   messages.value = []
-  lastResponse.value = null
-  lastTrace.value = null
+  selectedRequestId.value = null
+  chatError.value = ''
   settings.conversationId = ''
   persist()
 }
 
 async function searchKnowledge() {
+  const query = searchQuery.value.trim()
+  if (busy.value || !query) return
   busy.value = true
+  searchResults.value = []
+  searchFeedback.value = { message: '正在检索…' }
   try {
-    const data = await requestSearch(searchQuery.value, 5)
-    searchResults.value = data.results || []
-    showToast(data.fallback_used
-      ? '知识库检索已降级，返回的是降级提示而非真实命中'
-      : `检索完成，返回 ${searchResults.value.length} 条结果`)
+    const data = await requestSearch(query, 5)
+    const results = Array.isArray(data.results) ? data.results : []
+    searchResults.value = results.filter(item => item?.content && !item.fallback)
+    const count = searchResults.value.length
+    searchFeedback.value = data.fallback_used || results.some(item => item?.fallback)
+      ? { message: count ? `部分检索发生降级 · 保留 ${count} 条真实片段` : '检索已降级 · 没有真实片段', tone: 'warning-text' }
+      : { message: count ? `命中 ${count} 条文档片段` : '未返回可用片段。', tone: count ? 'success' : 'muted' }
   } catch (error) {
     statusText.value = error.message
     statusOpen.value = true
-    showToast('检索失败，请检查连接')
+    searchFeedback.value = { message: `检索失败 · ${error.message}`, tone: 'danger' }
   } finally { busy.value = false }
 }
 
@@ -521,14 +490,19 @@ async function handleUpload(event) {
 
 async function runEvaluation() {
   busy.value = true
+  evaluationPending.value = true
+  evaluationError.value = ''
   try {
     evalData.value = await requestEvaluation()
     showToast('评测完成')
   } catch (error) {
     statusText.value = error.message
     statusOpen.value = true
-    showToast('评测运行失败')
-  } finally { busy.value = false }
+    evaluationError.value = `评测运行失败 · ${error.message}`
+  } finally {
+    evaluationPending.value = false
+    busy.value = false
+  }
 }
 
 async function loadToolTrace(requestId) {
@@ -545,14 +519,6 @@ async function loadToolTrace(requestId) {
 function formatPercent(value) {
   const number = Number(value || 0)
   return `${(number <= 1 ? number * 100 : number).toFixed(1)}%`
-}
-
-function formatJson(value) {
-  try {
-    return JSON.stringify(value ?? {}, null, 2)
-  } catch {
-    return String(value ?? '')
-  }
 }
 
 function createMessageId() {

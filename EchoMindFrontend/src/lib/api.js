@@ -114,6 +114,7 @@ function normalizeChatResponse(raw) {
     escalated: Boolean(raw.escalated),
     latencyMs: Number(raw.latency_ms ?? 0),
     knowledgeUsed: Boolean(raw.knowledge_used),
+    knowledgePrefetch: raw.knowledge_prefetch || null,
     raw
   }
 }

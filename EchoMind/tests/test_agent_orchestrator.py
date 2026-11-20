@@ -233,6 +233,34 @@ def test_tool_use_round_trip_executes_only_whitelisted_tool():
     assert "tool_result" in str(client.calls[1]["messages"])
 
 
+def test_rag_trace_only_exposes_bounded_real_evidence():
+    class RagManager:
+        async def search_with_rewrite(self, tool_name, query, top_k=5):
+            from mcp.tool_manager import ToolResult
+
+            return ToolResult(
+                success=True,
+                tool_name=tool_name,
+                data=[
+                    {"title": "退款政策", "content": "原" * 600},
+                    {"title": "降级提示", "content": "稍后重试", "fallback": True},
+                ],
+                fallback_used=True,
+            )
+
+    client = ScriptedClient([
+        tool_use_response("search_knowledge_base", {"query": "退款"}),
+        text_response("已查到退款政策"),
+    ])
+    agent = BillingAgent(client, "test-model")
+    agent.set_shared_tools(build_shared_rag_tools(RagManager()))
+    response = asyncio.run(agent.handle(make_request()))
+    assert response.success
+    trace, = response.tool_traces
+    assert trace["knowledge_hit"] and trace["fallback_used"]
+    assert trace["knowledge_sources"] == [{"title": "退款政策", "snippet": "原" * 500}]
+
+
 def test_successful_tool_round_trip_reports_tool_traces():
     client = ScriptedClient([tool_use_response(args={"error_code": "401"}), text_response()])
     agent = TechnicalAgent(client, "test-model")

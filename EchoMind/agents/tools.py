@@ -197,6 +197,7 @@ def build_shared_rag_tools(tool_manager: Any) -> Dict[str, AgentToolSpec]:
                 "error": getattr(result, "error", "知识库检索失败"),
                 "results": [],
                 "reranked": False,
+                "fallback_used": bool(getattr(result, "fallback_used", False)),
             }
 
         fallback_used = bool(getattr(result, "fallback_used", False))

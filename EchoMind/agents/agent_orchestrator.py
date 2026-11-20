@@ -39,6 +39,7 @@ from agents.tools import (
     technical_tools,
 )
 from core.intent_recognizer import IntentCategory, IntentRecognizer, UrgencyLevel
+from core.knowledge_evidence import source_preview
 from core.llm_utils import extract_text_content
 
 logger = logging.getLogger(__name__)
@@ -325,6 +326,12 @@ class BaseAgent:
                 tool_latency_ms = (time.monotonic() - tool_t0) * 1000
                 if not error_text and isinstance(result, dict):
                     error_text = str(result.get("error", "") or "")
+                knowledge_sources = []
+                if name == "search_knowledge_base" and isinstance(result, dict) and result.get("knowledge_hit"):
+                    knowledge_sources = [
+                        preview for item in (result.get("results") or [])[:3]
+                        if (preview := source_preview(item)) is not None
+                    ]
                 tool_traces.append(
                     {
                         "agent_type": self.agent_type.value,
@@ -334,6 +341,7 @@ class BaseAgent:
                         "success": call_success,
                         "result_success": result_success,
                         "knowledge_hit": bool(result.get("knowledge_hit")) if isinstance(result, dict) else False,
+                        "knowledge_sources": knowledge_sources,
                         "latency_ms": round(tool_latency_ms, 1),
                         "cached": bool(result.get("cached")) if isinstance(result, dict) else False,
                         "reranked": bool(result.get("reranked")) if isinstance(result, dict) else False,

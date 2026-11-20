@@ -14,7 +14,7 @@
 
 <br><br>
 
-<img src="https://img.shields.io/badge/测试-44%20passed-2EA043?style=flat-square" alt="测试状态">
+<img src="https://img.shields.io/badge/测试-45%20passed-2EA043?style=flat-square" alt="测试状态">
 <img src="https://img.shields.io/badge/架构-多%20Agent%20%2B%20RAG%20%2B%20MCP-1F6FEB?style=flat-square" alt="架构">
 <img src="https://img.shields.io/badge/仓库-统一单仓库-8250DF?style=flat-square" alt="统一单仓库">
 
@@ -145,7 +145,7 @@ EchoMind/
 │   ├── monitor/                #   性能监控 + Prometheus + 异常检测
 │   ├── evaluation/             #   LLM-as-Judge 评测
 │   ├── skills/                 #   可被热加载的技能包
-│   ├── tests/                  #   44 passed（离线回归）
+│   ├── tests/                  #   45 passed（离线回归）
 │   └── wiki/                   #   全套技术文档 + 架构图
 ├── EchoMindFrontend/           # 前端：Vue 3 + Vite 调试界面（4 个源文件）
 │   └── src/                    #   App.vue / lib/api.js / styles.css / main.js
@@ -171,6 +171,10 @@ EchoMind/
 | [`EchoMind/wiki/完整使用指南.md`](EchoMind/wiki/完整使用指南.md) | 全功能操作手册 |
 | [`EchoMind/2026.08.29改动说明.md`](EchoMind/2026.08.29改动说明.md) | 多 Agent 编排重构记录 |
 | [`EchoMind学习指南.md`](EchoMind学习指南.md) | 7 天读码路径 |
+
+### 用工作台演示一条请求
+
+在「对话」点击「查询退款政策」，对照回答和右侧执行记录。面板从 API 和工具 Trace 展示意图、主辅路由、预检索状态和命中片段。点击历史回复下的「查看执行记录」可切回该轮，路由原因和原始回包可按需展开。知识库视图区分真实片段和降级状态，评测视图分开呈现意图标注对照、对话模型评分及异常项。
 
 <details>
 <summary><b>架构图集（6 张，展开查看）</b></summary>

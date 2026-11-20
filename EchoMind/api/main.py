@@ -12,8 +12,7 @@ import sys
 import time
 import uuid
 from contextlib import asynccontextmanager
-from typing import Any, Dict, List, Optional
-
+from typing import Any, Dict, List, Literal, Optional
 
 _ROOT = str(pathlib.Path(__file__).parent.parent.resolve())
 if _ROOT not in sys.path:
@@ -33,6 +32,8 @@ from fastapi import FastAPI, HTTPException, Response, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel, Field, ValidationError
+
+from core.knowledge_evidence import source_preview
 
 load_dotenv()
 
@@ -255,6 +256,11 @@ class ChatRequest(BaseModel):
     conv_id:     Optional[str] = None
 
 
+class KnowledgePrefetch(BaseModel):
+    status: Literal["skipped", "hit", "partial", "empty", "degraded", "error"]
+    sources: List[Dict[str, str]] = Field(default_factory=list)
+
+
 class ChatResponse(BaseModel):
     conv_id:     str
     request_id:  str = ""
@@ -271,6 +277,7 @@ class ChatResponse(BaseModel):
     escalated:   bool
     latency_ms:  float
     knowledge_used: bool = False
+    knowledge_prefetch: Optional[KnowledgePrefetch] = None
     entities: Dict[str, List[str]] = Field(default_factory=dict)
     intent_confidence: float = 0.0
     intent_source_scores: Dict[str, float] = Field(default_factory=dict)
@@ -365,7 +372,7 @@ async def _chat(req: ChatRequest):
     # 2.5 意图驱动的知识检索预注入：复用工具的查询改写/重排/降级能力，
     # 只有业务类问题才检索（寒暄类由 _should_use_knowledge 挡掉）。
     # 这段此前定义了却从未被调用，导致主链路实际不读知识库。
-    knowledge_context, knowledge_hit = await _build_knowledge_context(
+    knowledge_context, knowledge_prefetch = await _build_knowledge_context(
         req.message, intent=intent_result.intent
     )
     if knowledge_context:
@@ -414,48 +421,49 @@ async def _chat(req: ChatRequest):
         escalated=result.escalated,
         latency_ms=round((time.monotonic() - request_t0) * 1000, 1),
         # 知识来源有两种：主链路预注入命中，或 Agent 自主调用检索工具。
-        knowledge_used=knowledge_hit or any(call.get("knowledge_hit") for call in result.tool_traces),
+        knowledge_used=bool(knowledge_prefetch.sources) or any(call.get("knowledge_hit") for call in result.tool_traces),
+        knowledge_prefetch=knowledge_prefetch,
         entities=intent_result.entities,
         intent_confidence=round(intent_result.confidence, 4),
         intent_source_scores=intent_result.source_scores,
     )
 
 
-async def _build_knowledge_context(message: str, intent=None, top_k: int = 3) -> tuple[str, bool]:
+async def _build_knowledge_context(message: str, intent=None, top_k: int = 3) -> tuple[str, KnowledgePrefetch]:
     """
     为 /chat 主链路构建 RAG 知识上下文。
 
     这里复用 MCPToolManager 的查询改写、并行召回、重排、fallback 能力。
     """
-    if _tool_manager is None:
-        return "", False
     if not _should_use_knowledge(message, intent=intent):
-        return "", False
+        return "", KnowledgePrefetch(status="skipped")
+    if _tool_manager is None:
+        return "", KnowledgePrefetch(status="error")
     try:
         result = await _tool_manager.search_with_rewrite("knowledge_search", message, top_k=top_k)
+        fallback = bool(getattr(result, "fallback_used", False))
         if not result.success or not isinstance(result.data, list) or not result.data:
-            return "", False
+            return "", KnowledgePrefetch(status="degraded" if fallback else "empty")
 
         parts = ["[知识库检索结果]"]
-        used = False
+        sources = []
         for i, item in enumerate(result.data[:top_k], start=1):
-            if not isinstance(item, dict) or item.get("fallback"):
+            preview = source_preview(item)
+            if preview is None:
                 continue
-            title = str(item.get("title", "未命名文档"))
-            content = str(item.get("content", "")).strip()
+            sources.append(preview)
+            title = preview["title"]
+            content = item["content"].strip()
             score = item.get("score", "")
-            if not content:
-                continue
-            used = True
             parts.append(f"{i}. 标题: {title}\n   相关度: {score}\n   内容: {content[:600]}")
 
-        if not used:
-            return "", False
+        if not sources:
+            return "", KnowledgePrefetch(status="degraded" if fallback else "empty")
         parts.append("请优先依据以上知识库内容回答；如果知识库内容不足，再结合通用客服能力说明。")
-        return "\n".join(parts), True
+        return "\n".join(parts), KnowledgePrefetch(status="partial" if fallback else "hit", sources=sources)
     except Exception as ex:
         logger.warning(f"构建知识库上下文失败: {ex}")
-        return "", False
+        return "", KnowledgePrefetch(status="error")
 
 
 def _should_use_knowledge(message: str, intent=None) -> bool:

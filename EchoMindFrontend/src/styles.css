@@ -1266,3 +1266,34 @@ a { color: inherit; }
     animation-duration: 0.01ms !important;
   }
 }
+
+.message .message-inspect {
+  margin-top: 10px;
+  min-height: 30px;
+  padding: 0 9px;
+  font-size: 12px;
+}
+
+.message-inspect[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: #c2c6ff;
+}
+
+.connection-settings > summary {
+  color: var(--text-soft);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.connection-settings[open] > summary { margin-bottom: 14px; }
+.workspace-feedback { margin: 12px 0; font-size: 13px; line-height: 1.55; overflow-wrap: anywhere; }
+.warning-text { color: #edbc75; }
+.result-item.knowledge-result { display: block; }
+.knowledge-result summary { cursor: pointer; flex-wrap: wrap; gap: 6px 12px; }
+.knowledge-result summary strong { overflow-wrap: anywhere; }
+.knowledge-result summary strong::before { content: "›"; display: inline-block; margin-right: 7px; }
+.knowledge-result[open] summary strong::before { transform: rotate(90deg); }
+.knowledge-result p { margin-top: 8px; white-space: pre-wrap; }
+.regression-list { margin: 0 0 12px; padding-left: 18px; color: #edbc75; font-size: 13px; line-height: 1.6; }
