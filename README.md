@@ -55,6 +55,12 @@
 
 主要接口：`/chat`（对话）、`/search`（检索优化链路演示）、`/knowledge/add|upload|stats`（知识库）、`/skills` + `/skills/reload`（Skills 查看/热加载）、`/monitor`（监控摘要）、`/trace/tool/{id}`（工具调用回放）、`/eval/run`（端到端评测）。
 
+## 运行展示
+
+![EchoMind 运行截图：左侧是退款对话，右侧显示意图识别、账单 Agent 路由和命中的退款政策](assets/echomind-runtime.jpg)
+
+本地运行示例中，用户询问退款到账时间，账单 Agent 根据命中的《退款政策》回答审核通过后 5–7 个工作日退回原支付账户。右侧执行记录可展开核对原文。
+
 ## 快速开始
 
 Windows 可通过本机 Ollama、Redis 和预编译版 ChromaDB 启动 Python 后端与 Vue 调试界面。安装、验证和停止步骤见 [Windows 本地部署](WINDOWS_LOCAL.md)。
